@@ -1,0 +1,98 @@
+Using the Register Address Map as defined in the 1740 User Manual.
+
+Format:
+Register	Value it should be set to	Brief description
+
+0x0000		Read Only   	 	       		Readout Register
+
+0x1n24		0xdeadbeef			Dummy32 register for debug purposes
+
+0x1n80		0x0000				Trigger Threshold Level
+
+0x1n88		Read Only			Channel Status (mem empty/full,etc)
+
+0x1n8c		Read Only			Firmware Revision
+
+0x1n98		0x8000				DC Offset (0x8000 is middle--check bit 2 of register 0x1n88 and make sure it is zero!)
+
+0x01nA8, 0x80A8	0x000F				Channel Enable Mask (I think we need to write to register 0x80A8. I chose value of 0xF because we will have 4 inputs)
+
+0x1nc0, 0x80c0	Do Nothing			Channel Indiv. Offset
+
+0x1nC4, 0x80c4	Do Nothing			More Channel Indiv. Offsets
+
+0x8000		0xXX10 				Board Config (trig overlap, test pattern enable, self trig polarity)
+
+0x800C		0xXXXX				BUFF ORG-CHECK for rec length
+
+0x8020		0xXXXX				CUSTOM SIZE-CHECK W/BuffOrg
+
+0x8044		0xXXX7				DECIMATION (defined 2^N; here N=7)
+
+0x8100		Not sure yet			Acquisition control-Talk to Chris
+
+0x8104		Read Only			Acq status--Probably Important to check/print
+
+0x8108		Write Only			Writing generates software trig
+
+0x810C		Not Sure Yet			Glob. trig mask (bit 30 should be 1)
+
+0x8110		Do Nothing			Front Panel TRG-OUT enable mask
+
+0x8114		Not Sure Yet			Post Trigger samples
+
+0x8118		Do Nothing			LVDS I/0 Data
+
+0x811C		0xXXX1				Zeroth bit sets NIM/TTL trig
+
+0x8120		0x000F				Group Enable Mask (set same as individual just to be safe)
+
+0x8124		Read Only			ROC Firmware Revision
+
+0x812c		Read Only			Number of Events in readout buffer
+
+0x8138		Do Nothing			Set Monitor DAC
+
+0x813c		Do Nothing			Software Clock Sync
+
+0x8140		Read Only			Board Info (important to read)
+
+0x8144		Do Nothing			Monitor DAC mode
+
+0x814c		Do Nothing			Current Event Size
+
+0x8168		Do Nothing			Fan Speed Control
+
+0x816c		Not Sure Yet			Mem Buff almost full
+
+0x8170		Do Nothing			Run/Start/Stop for Daisychaining
+
+0x8178		Read Only			Board Failure Status
+
+0x81A0		Do Nothing			FP LVDS I/O features
+
+0x81B4		Do Nothing			Buffer Occupancy Gain
+
+0xEF00		Not Sure Yet			Readout Control--ask Chris about interrupts
+
+0xEF04		Read Only			Event Readout Status
+
+0xEF08		Read Only			Board ID
+
+0xEF0c		Do Nothing			MCST Board Address & control
+
+0xEF10		Do Nothing			Relocation Address
+
+0xEF14		Not Sure Yet			Interrupt Status
+
+0xEF18		Do Nothing			Interrupt Event Number
+
+0xEF1c		Not Sure Yet			Max # Events per BLT
+
+0xEF20		Do Nothing			Scratch Memory
+
+0xEF24		Write Anything			Write to generate Software reset
+
+0xEF28		Do Nothing			Software Clear--writing here clears all internal memory. Clears/resets following registers: Event Stored, Event Size, Channel/Group Buff occupancy
+
+0xEF32		Do Nothing			Configuration Reload
