@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 
   ret = CAEN_DGTZ_SetRecordLength(handle, 4096);
   ret = CAEN_DGTZ_GetRecordLength(handle, &reclength);
-  printf("Record Length is set to %08x\n", reclength);
+  printf("Record Length is set to %i\n", reclength);
 
   ret = CAEN_DGTZ_SetChannelEnableMask(handle, mask);
   ret = CAEN_DGTZ_GetChannelEnableMask(handle, &mask);
@@ -134,6 +134,9 @@ int main(int argc, char *argv[])
   ret = CAEN_DGTZ_GetSWTriggerMode(handle, &mode);
   printf("Trigger mode is %i\n", mode);
 
+  ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle, 3);
+
+  ret = CAEN_DGTZ_SetAcquisitionMode(handle, CAEN_DGTZ_SW_CONTROLLED);
   
   ret = CAEN_DGTZ_SetPostTriggerSize(handle, posttrig);
   ret = CAEN_DGTZ_GetPostTriggerSize(handle, &percent);
@@ -159,7 +162,7 @@ int main(int argc, char *argv[])
   
   int err; //note that function definition at the top returns an int instead of CAEN_DGTZ_ErrorCode
   uint32_t data;
-  err = RegisterSetBits(handle, 0x8044, 0, 7, 1);
+  err = RegisterSetBits(handle, 0x8044, 0, 7, 7);
   ret = CAEN_DGTZ_ReadRegister(handle, 0x8044, &data);
   printf("Decimation factor is set to %08x\n", data);
 
@@ -171,16 +174,16 @@ int main(int argc, char *argv[])
    printf("cannot allocate memory!");
  }
  else{
-   printf("Memory allocated. Buffer size is %08x\n", size);
+   printf("Memory allocated. Buffer size on local machine is %i\n", size);
  }
  
-  while(1)
-     {
-       c = checkCommand();
-       if(c==9) break;
-       //if(c==2) return 0;
-       Sleep(100);
-     }
+  /* while(1) */
+  /*    { */
+  /*      c = checkCommand(); */
+  /*      if(c==9) break; */
+  /*      //if(c==2) return 0; */
+  /*      Sleep(100); */
+  /*    } */
 
  
  //*****************************************************
@@ -189,15 +192,17 @@ int main(int argc, char *argv[])
  
   
   ret = CAEN_DGTZ_SWStartAcquisition(handle);
-  printf("Starting SW Acq");
+  printf("Starting SW Acq\n"); 
+  uint32_t nevt;
   int i;
   while(1)
     {
       // ret = CAEN_DGTZ_SendSWtrigger(handle);
-
-   
-   ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
-
+     
+      // ret = CAEN_DGTZ_ReadRegister(handle, 0x812C, &nevt);
+      // printf("Number of events in buffer is %u\n", nevt);
+				   
+       ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
    //fprintf(stderr, "buffer size is %d\n", bsize);
    
    ret = CAEN_DGTZ_GetNumEvents(handle, buffer, bsize, &numEvents);
@@ -207,9 +212,9 @@ int main(int argc, char *argv[])
    fprintf(stderr,"Board retrieved %d event(s)\n", numEvents);
      }
      fprintf(stderr, buffer, bsize);
+    
 
-
-   //ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
+     // ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
     
    c = checkCommand();
    if (c==1) goto Continue;
