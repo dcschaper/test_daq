@@ -33,36 +33,54 @@ int main(int argc, char *argv[])
   // ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0x00A00000, &handle);
   ret2 = CAENComm_OpenDevice(CAENComm_USB, 1, 0, 0x00A00000, &handle);
 
-  if(ret)
+  ret2 = CAENComm_Write16(handle, 0x00C, 0x1);
+
+  ret2 = CAENComm_Write16(handle, 0x002, 0x8800); //9C00 for ext trig
+
+  ret2 = CAENComm_Write16(handle, 0x004, 0xE440); //1024/8 =128 samples
+
+  ret2 = CAENComm_Write16(handle, 0x006, 0x1385); //2.5 KHz sampling rate (0x1385 =4997 and then +3 by definition)
+
+  ret2 = CAENComm_Write16(handle, 0x008, 0xFF00); //disable Interrupts
+
+  ret2 = CAENComm_Write16(handle, 0x010, 0xFF00); //Default gain of 1
+
+  uint16_t dataRDY;
+  unsigned short buff[0x400];
+  CAENComm_ErrorCode error[0x400];
+  uint32_t address=0x80;
+  for(i=0; i<100; i++) 
     {
-      printf("Error code is %d, handle is %i \n", ret, handle);
-      // ErrCode = ERR_DGZ_OPEN;
-      goto QuitProgram;
+      ret2 = CAENComm_Write16(handle, 0x00E, 0x1);
+      printf("SW Trigger number %i issued\n", i);
+      do CAENComm_Read16(handle, 0x002, &dataRDY);
+      while(!(dataRDY >> 6 & 1));
+      printf("I'm reading...\n");
+
+     
+      /* for(i=0; i< 0x400; i++) */
+      /* 	{CAENComm_MultiRead16(handle, 0x80+2i,  */
+      /* 	} */
+
+      CAENComm_MultiRead16(handle, &address, 0x400, buff, error);
+      /* for(i=0; i<0x400 */
+      printf("before write statement\n");
+      fwrite(buff, 2, 0x400, stdout);
+      printf("after write statement\n");
+       usleep(10000);
     }
-  printf("hi");
+
+
+
+  
+
+  
+  printf("after readout loop\n");
   //  CAEN_DGTZ_Reset (handle);
 
-  ret2 = CAENComm_Write16(handle, 0x002, 0xF0D0);
-  
-  CAEN_DGTZ_IOLevel_t info;
-  uint32_t iolvl;
-  ret = CAEN_DGTZ_SetIOLevel(handle, CAEN_DGTZ_IOLevel_TTL); //if I change to TTL, printed numbers change accordingly. I must be missing some sort of base conversion...why are they printing with 10 digits instead of 8? Why are they all printing with 2 leading 4s???
- ret = CAEN_DGTZ_GetIOLevel(handle, &info);
- ret = CAEN_DGTZ_ReadRegister(handle, 0x811C, &iolvl);
- printf("\nSuccessfully connected! IO Level is %i or %08x", info, iolvl);
-
-  usleep(3000000);
-
-  ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
-  printf("\nConnected to CAEN Digitizer, Model %s", BoardInfo.ModelName);
-
-  uint32_t length;
-  ret = CAEN_DGTZ_SetRecordLength(handle, 4096);
-  ret = CAEN_DGTZ_GetRecordLength(handle, &length);
-  printf("\nRecord Length set to %i", length);
+  // ret2 = CAENComm_Write16(handle, 0x002, 0x00D0);
 
   
-
  QuitProgram:
   // if (ErrCode)
   // {
