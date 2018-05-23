@@ -1,3 +1,8 @@
 echo =========
 g++ -o test_daq test_daq.c -I. -I$CAENDIGITIZERSYS/include -L$CAENDIGITIZERSYS/lib -lCAENDigitizer
+
+echo =========
+
+g++ -o slow_daq slow_daq.c -I. -I$CAENDIGITIZERSYS/include -L$CAENDIGITIZERSYS/lib -lCAENDigitizer -lCAENComm
+
 echo =========

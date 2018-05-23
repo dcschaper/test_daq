@@ -1,0 +1,3 @@
+echo =========
+g++ -o sandbox_daq sandbox_daq.c -I. -I$CAENDIGITIZERSYS/include -L$CAENDIGITIZERSYS/lib -lCAENDigitizer -lCAENComm
+echo =========

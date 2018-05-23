@@ -1,5 +1,4 @@
 #include <CAENDigitizer.h>
-//#include "keyb.h"
 #include "keyb.c"
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,14 +98,14 @@ int main(int argc, char *argv[])
   uint32_t numEvents;
 
   
-  ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0x32100000, &handle);
+  ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0x32100000, &handle);
   if(ret)
     {
-      fprintf(stderr,"Error code is %d, handle is %i \n", ret, handle);
-      // ErrCode = ERR_DGZ_OPEN;
+      fprintf(stderr,"Unable to open digitizer. Error code is %d, handle is %i \n", ret, handle);
       goto QuitProgram;
     }
 
+  
   ret = CAEN_DGTZ_GetInfo(handle, &BoardInfo);
   printf("\nConnected to CAEN Digitizer Model %s, recognized as board %d\n", BoardInfo.ModelName, handle);
   printf("\tROC FPGA Release is %s\n", BoardInfo.ROC_FirmwareRel);
@@ -126,11 +125,7 @@ int main(int argc, char *argv[])
   ret = CAEN_DGTZ_GetChannelEnableMask(handle, &mask);
   printf("Channel Enable Mask set to %i, %x in hex\n", mask, mask);
 
-  //ret = CAEN_DGTZ_SetExtTriggerInputMode(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
-  // ret = CAEN_DGTZ_GetExtTriggerInputMode(handle, &mode);
-  // printf("Trigger mode is %i\n", mode);
-
-   ret = CAEN_DGTZ_SetSWTriggerMode(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
+  ret = CAEN_DGTZ_SetSWTriggerMode(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
   ret = CAEN_DGTZ_GetSWTriggerMode(handle, &mode);
   printf("Trigger mode is %i\n", mode);
 
@@ -150,10 +145,7 @@ int main(int argc, char *argv[])
 
   
   
-    
-  printf("hi!\n");
-  
-  printf("Successfully connected!\n");
+  printf("Yay! You're successfully connected and the board has been programmed!\n");
 
   usleep(1000000);
 
@@ -171,20 +163,19 @@ int main(int argc, char *argv[])
   
  ret = CAEN_DGTZ_MallocReadoutBuffer(handle, &buffer, &size);
  if(ret) {
-   printf("cannot allocate memory!");
+   printf("Cannot allocate memory!");
  }
  else{
    printf("Memory allocated. Buffer size on local machine is %i\n", size);
  }
  
-  /* while(1) */
-  /*    { */
-  /*      c = checkCommand(); */
-  /*      if(c==9) break; */
-  /*      //if(c==2) return 0; */
-  /*      Sleep(100); */
-  /*    } */
-
+  while(1)
+   { 
+     c = checkCommand(); 
+    if(c==9) break;
+    if(c==2) goto QuitProgram;
+        Sleep(100); 
+      } 
  
  //*****************************************************
  //READOUT
@@ -199,11 +190,11 @@ int main(int argc, char *argv[])
     {
       // ret = CAEN_DGTZ_SendSWtrigger(handle);
      
-      // ret = CAEN_DGTZ_ReadRegister(handle, 0x812C, &nevt);
-      // printf("Number of events in buffer is %u\n", nevt);
 				   
        ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
-   //fprintf(stderr, "buffer size is %d\n", bsize);
+       
+       fprintf(stderr, buffer, bsize);
+       //fprintf(stderr, "buffer size is %d\n", bsize);
    
    ret = CAEN_DGTZ_GetNumEvents(handle, buffer, bsize, &numEvents);
 
@@ -211,10 +202,8 @@ int main(int argc, char *argv[])
      {
    fprintf(stderr,"Board retrieved %d event(s)\n", numEvents);
      }
-     fprintf(stderr, buffer, bsize);
-    
 
-     // ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
+   //fprintf(stderr, buffer, bsize);   
     
    c = checkCommand();
    if (c==1) goto Continue;
@@ -228,10 +217,8 @@ int main(int argc, char *argv[])
   //Need to fwrite events??
   
  QuitProgram:
-  // if (ErrCode)
-  // {
       printf("quitting program\n");
-  // }
+
       ret = CAEN_DGTZ_FreeReadoutBuffer(&buffer);     
   CAEN_DGTZ_SWStopAcquisition(handle);
   CAEN_DGTZ_CloseDigitizer(handle);
