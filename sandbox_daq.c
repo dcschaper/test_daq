@@ -3,7 +3,7 @@
 //#include "keyb.h"
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <strings.h>
 
 
 
@@ -19,55 +19,90 @@ CAEN_DGTZ_BoardInfo_t BoardInfo;
 
 int main(int argc, char *argv[])
 {
-  printf("\n");
-  printf("******************************************************\n");
-  printf("                 hello! \n");
-  printf("******************************************************\n");
+  /* printf("\n"); */
+  /* printf("******************************************************\n"); */
+  /* printf("                 hello! \n"); */
+  /* printf("******************************************************\n"); */
 
   CAEN_DGTZ_ErrorCode ret;
   CAENComm_ErrorCode ret2;
   int handle;
-  int i;
+  int i, j;
   CAEN_DGTZ_BoardInfo_t BoardInfo;
   
   // ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0x00A00000, &handle);
   ret2 = CAENComm_OpenDevice(CAENComm_USB, 1, 0, 0x00A00000, &handle);
 
-  ret2 = CAENComm_Write16(handle, 0x00C, 0x1);
+  ret2 = CAENComm_Write16(handle, 0x00C, 0x1);   //reset
 
-  ret2 = CAENComm_Write16(handle, 0x002, 0x8800); //9C00 for ext trig
+  ret2 = CAENComm_Write16(handle, 0x002, 0x8000); //9C00 for ext trig
 
+  uint16_t trig;
+  ret2 = CAENComm_Read16(handle, 0x002, &trig); //9C00 for ext trig
+  printf("trigger register is %04x\n",trig);
+  
   ret2 = CAENComm_Write16(handle, 0x004, 0xE440); //1024/8 =128 samples
 
-  ret2 = CAENComm_Write16(handle, 0x006, 0x1385); //2.5 KHz sampling rate (0x1385 =4997 and then +3 by definition)
+  uint16_t sample;
+  ret2 = CAENComm_Read16(handle, 0x004, &sample); //9C00 for ext trig
+  printf("sample register is %04x\n",sample);
 
+  uint16_t rate;
+  ret2 = CAENComm_Write16(handle, 0x006, 0x1385);//2.5 KHz sampling rate (0x1385 =4997 and then +3 by definition)
+   ret2 = CAENComm_Read16(handle, 0x006, &rate);
+   printf("rate is %i\n", rate);
+   
   ret2 = CAENComm_Write16(handle, 0x008, 0xFF00); //disable Interrupts
 
   ret2 = CAENComm_Write16(handle, 0x010, 0xFF00); //Default gain of 1
 
+
+  
   uint16_t dataRDY;
-  unsigned short buff[0x400];
-  CAENComm_ErrorCode error[0x400];
+  unsigned short buff[0x400]={0};
+  CAENComm_ErrorCode error[0x400]={CAENComm_Success};
   uint32_t address=0x80;
-  for(i=0; i<100; i++) 
+
+ do {
+	CAENComm_Read16(handle, 0x002, &dataRDY);
+        /* printf("reg02: %x\n", dataRDY); */
+	
+      }
+      while(!(dataRDY >> 7 & 1));
+ 
+ /* printf("Calibration Complete\n");  */
+  
+  for(i=0;;i++) 
     {
-      ret2 = CAENComm_Write16(handle, 0x00E, 0x1);
-      printf("SW Trigger number %i issued\n", i);
-      do CAENComm_Read16(handle, 0x002, &dataRDY);
+      ret2 = CAENComm_Write16(handle, 0x000E, 0x1);
+      /* printf("SW Trigger number %i issued\n", i); */
+      do {
+	CAENComm_Read16(handle, 0x002, &dataRDY);
+	// printf("reg02: %x\n", dataRDY);
+	usleep(1000);
+      }
       while(!(dataRDY >> 6 & 1));
-      printf("I'm reading...\n");
+      usleep(100000);
+      /* printf("I'm reading...\n"); */
 
      
       /* for(i=0; i< 0x400; i++) */
       /* 	{CAENComm_MultiRead16(handle, 0x80+2i,  */
       /* 	} */
 
-      CAENComm_MultiRead16(handle, &address, 0x400, buff, error);
-      /* for(i=0; i<0x400 */
-      printf("before write statement\n");
-      fwrite(buff, 2, 0x400, stdout);
-      printf("after write statement\n");
-       usleep(10000);
+      /* CAENComm_MultiRead16(handle, &address, 0x400, buff, error); */
+      // printf("before Read statement\n");
+      for(j=0; j<0x400;j++) {
+	CAENComm_Read16(handle, 0x80+2*j, buff+j);
+	usleep(1000);
+ 	printf("%04hx ", buff[j]);
+ 	if (!((j+1)%16))printf("\n");
+       /* fwrite(buff, 2, 0x400, stdout); */
+       //fwrite(error, 2, 0x400, stdout);
+
+      }
+      printf("\after write statement\n");
+      bzero(buff,0x800);
     }
 
 
@@ -75,16 +110,16 @@ int main(int argc, char *argv[])
   
 
   
-  printf("after readout loop\n");
+  //printf("after readout loop\n");
   //  CAEN_DGTZ_Reset (handle);
 
-  // ret2 = CAENComm_Write16(handle, 0x002, 0x00D0);
+  // ret2 = CAENComm_Write16(handle, 0x002, 0xF0D0);
 
   
  QuitProgram:
   // if (ErrCode)
   // {
-      printf("\nquitting program\n");
+      /* printf("\nquitting program\n"); */
   // }
   
   CAEN_DGTZ_SWStopAcquisition(handle);
