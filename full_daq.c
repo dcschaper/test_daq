@@ -1,0 +1,261 @@
+#include <CAENDigitizer.h>
+#include <CAENComm.h>
+#include "keyb.c"
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <time.h>
+
+
+//******************
+//Global Functions
+//******************
+
+int RegisterSetBits(int handle, uint16_t addr, int start_bit, int end_bit, int val)
+{
+  uint32_t mask=0, reg;
+  int ret;
+  int i;
+
+  ret = CAEN_DGTZ_ReadRegister(handle, addr, &reg);   
+  for(i=start_bit; i<=end_bit; i++)
+    mask |= 1<<i;
+  reg = reg & ~mask | ((val<<start_bit) & mask);
+  ret |= CAEN_DGTZ_WriteRegister(handle, addr, reg);   
+  return ret;
+}
+
+
+
+int checkCommand()
+{
+  if(!kbhit()) return 0;
+  switch (getch()){
+  case 's': return 9; break;
+  case 'k': return 1; break;
+  case 'q': return 2; break;
+  }
+  return 0;
+}
+
+
+//****************************************************************************
+//MAIN
+//****************************************************************************
+
+
+int main(int argc, char *argv[])
+{
+
+  //***********************
+  //Variables
+  //***********************
+
+  int c=0;
+  int i, j;
+  int nevents=100;
+  CAEN_DGTZ_ErrorCode ret;
+  CAENComm_ErrorCode ret2;
+  int handle_fast;
+  CAEN_DGTZ_BoardInfo_t BoardInfo;
+  CAEN_DGTZ_IOLevel_t level;
+  uint32_t reclength;
+  int nch=4; //need to change if you change the channel mask!!!!!!1!!1!
+  uint32_t mask = 0b00001111; //LSB (rightmost bit) is channel zero, followed by channel 1, 2..7, read right to left.
+  CAEN_DGTZ_TriggerMode_t mode;
+  uint32_t posttrig = 80;
+  uint32_t percent;
+  uint32_t DCoffset=0x7FFF;
+  uint32_t dcoffset;
+  char *buffer = NULL;
+  uint32_t size;
+  uint32_t bsize;
+  uint32_t numEvents;
+  int err;
+  uint32_t data;
+  uint32_t evtRDY;
+  time_t timer;
+
+  int handle_slow;
+  uint16_t trig;
+  uint16_t sample;
+  uint16_t samprate;
+  uint16_t dataRDY;
+  unsigned short buff[0x400]={0};
+  CAENComm_ErrorCode error[0x400]={CAENComm_Success};
+  uint32_t address = 0x80;
+
+  if (argc>1) nevents=atoi(argv[1]);
+  
+  //*************************************
+  //Open and Program the CAEN V1724 Card
+  //*************************************
+
+  ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0x32100000, &handle_fast);
+  if(ret)
+    {
+      fprintf(stderr,"Unable to open digitizer. Error code is %d, handle is %i \n", ret, handle_fast);
+      goto QuitProgram;
+    }
+  
+  ret = CAEN_DGTZ_GetInfo(handle_fast, &BoardInfo);
+  fprintf(stderr,"\nConnected to CAEN Digitizer Model %s, recognized as board %d\n", BoardInfo.ModelName, handle_fast);
+  fprintf(stderr,"\tROC FPGA Release is %s\n", BoardInfo.ROC_FirmwareRel);
+  fprintf(stderr,"\tAMC FPGA Release is %s\n", BoardInfo.AMC_FirmwareRel);
+
+  ret = CAEN_DGTZ_Reset(handle_fast);
+
+  ret = CAEN_DGTZ_SetIOLevel(handle_fast, CAEN_DGTZ_IOLevel_TTL);
+  ret = CAEN_DGTZ_GetIOLevel(handle_fast, &level);
+  fprintf(stderr,"Front Panel I/O Level is %i (1 for TTL, 0 for NIM)\n", level);
+
+  ret = CAEN_DGTZ_SetRecordLength(handle_fast, 4096);
+  ret = CAEN_DGTZ_GetRecordLength(handle_fast, &reclength);
+  fprintf(stderr,"Record Length is set to %i\n", reclength);
+
+  ret = CAEN_DGTZ_SetChannelEnableMask(handle_fast, mask);
+  ret = CAEN_DGTZ_GetChannelEnableMask(handle_fast, &mask);
+  fprintf(stderr,"Channel Enable Mask set to %i, %x in hex\n", mask, mask);
+
+  ret = CAEN_DGTZ_SetSWTriggerMode(handle_fast, CAEN_DGTZ_TRGMODE_ACQ_ONLY);
+  ret = CAEN_DGTZ_GetSWTriggerMode(handle_fast, &mode);
+  fprintf(stderr,"Trigger mode is %i\n", mode);
+
+  ret = CAEN_DGTZ_SetExtTriggerInputMode(handle_fast, CAEN_DGTZ_TRGMODE_ACQ_AND_EXTOUT);
+  // ret = CAEN_DGTZ_GetExtTriggerMode(handle_fast, &mode);
+  // fprintf(stderr,"Trigger mode is %i\n", mode);
+
+  
+  ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle_fast, 3);
+
+  ret = CAEN_DGTZ_SetAcquisitionMode(handle_fast, CAEN_DGTZ_SW_CONTROLLED);
+  
+  ret = CAEN_DGTZ_SetPostTriggerSize(handle_fast, posttrig);
+  ret = CAEN_DGTZ_GetPostTriggerSize(handle_fast, &percent);
+  fprintf(stderr,"Post-trigger record length set to %i percent\n", percent);
+
+  ret = CAEN_DGTZ_SetChannelDCOffset(handle_fast, -1, DCoffset);
+  ret = CAEN_DGTZ_GetChannelDCOffset(handle_fast, 0, &dcoffset);
+  fprintf(stderr,"DC offset is set to %i for all channels\n", dcoffset);
+
+  ret = CAEN_DGTZ_SetChannelPulsePolarity(handle_fast, -1, CAEN_DGTZ_PulsePolarityPositive); //can also set to negative pulse polarity
+
+  //note that RegisterSetBits function definition at the top returns an int instead of CAEN_DGTZ_ErrorCode
+  err = RegisterSetBits(handle_fast, 0x8044, 0, 7, 7);
+  ret = CAEN_DGTZ_ReadRegister(handle_fast, 0x8044, &data);
+  fprintf(stderr,"Decimation factor is set to %08x\n", data);
+
+  
+  fprintf(stderr,"Yay! You're successfully connected and the board has been programmed!\n");
+
+
+  ret = CAEN_DGTZ_MallocReadoutBuffer(handle_fast, &buffer, &size);
+  if(ret) {
+    fprintf(stderr,"Cannot allocate memory!");
+  }
+  else{
+    fprintf(stderr,"Memory for V1724 allocated. Buffer size on local machine is %i\n", size);
+  }
+
+
+  //**************************************************************************
+  //Open and Program the VMIVME 3122 Slow Control Card 
+  //**************************************************************************
+
+  //**************************
+  //Variables for 3122 card
+  //**************************
+ 
+  ret2 = CAENComm_OpenDevice(CAENComm_USB, 1, 0, 0x00A00000, &handle_slow);
+
+
+  ret2 = CAENComm_Write16(handle_slow, 0x00C, 0x1);   //reset the 3122 board
+
+  ret2 = CAENComm_Write16(handle_slow, 0x002, 0x9000); //9C00 for ext trig
+
+  ret2 = CAENComm_Read16(handle_slow, 0x002, &trig); //9C00 for ext trig
+  fprintf(stderr,"trigger register is %04x\n",trig);
+  
+  ret2 = CAENComm_Write16(handle_slow, 0x004, 0xE440); //1024/8 =128 samples
+
+  ret2 = CAENComm_Read16(handle_slow, 0x004, &sample); //9C00 for ext trig
+  fprintf(stderr,"sample register is %04x\n",sample);
+
+  ret2 = CAENComm_Write16(handle_slow, 0x006, 0x1385);//2.5 KHz sampling rate (0x1385 =4997 and then +3 by definition)
+  ret2 = CAENComm_Read16(handle_slow, 0x006, &samprate);
+  fprintf(stderr,"Sampling rate factor is %i\n", samprate);
+   
+  ret2 = CAENComm_Write16(handle_slow, 0x008, 0xFF00); //disable Interrupts
+
+  ret2 = CAENComm_Write16(handle_slow, 0x010, 0xFF00); //Default gain of 1
+
+  do
+    {
+      CAENComm_Read16(handle_slow, 0x002, &dataRDY); 
+    }
+  while(!(dataRDY >> 7 & 1));
+
+  fprintf(stderr,"Successfully programmed and calibrated the 3122 card!\n");
+
+ 
+  //*********************************************************************
+  //READOUT
+  //**********************************************************************
+  ret = CAEN_DGTZ_SWStartAcquisition(handle_fast); //starts 1724
+  
+  for(i=0; i<nevents;i++)
+    {
+     
+      //**********************
+      //READOUT LOOP FOR 3122
+      //**********************
+
+      do {
+	CAENComm_Read16(handle_slow, 0x002, &dataRDY);
+      }
+      while(!(dataRDY >> 6 & 1));
+
+      time(&timer);
+      fwrite(&timer,4,1,stdout);
+      
+      for(j=0; j<0x400;j++)
+	{
+	  CAENComm_Read16(handle_slow, 0x80+2*j, buff+j);
+	}
+      fwrite(buff, 2, 0x400, stdout);
+      bzero(buff,0x800);
+     
+      //**********************
+      //READOUT LOOP FOR 1724
+      //**********************
+           
+      do {
+	CAEN_DGTZ_ReadRegister(handle_fast, 0x812C, &evtRDY);
+      }
+      while(!(evtRDY));
+
+      time(&timer);
+      fwrite(&timer,4,1,stdout);
+				   
+      ret = CAEN_DGTZ_ReadData(handle_fast, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &bsize); //read the buffer from the digitizer
+
+      // check for more than one event
+
+      
+      fwrite(buffer, 4, 4+((reclength)*nch)/2, stdout); //4 words for the header, divide by 2 because each sample is half a word (word is 32 bits here, i.e. 4 bytes)
+     
+   
+      ret = CAEN_DGTZ_GetNumEvents(handle_fast, buffer, bsize, &numEvents);
+
+      if(numEvents!=1)
+	{
+	  fprintf(stderr,"Board retrieved %d event(s)\n", numEvents);
+	}
+
+    }
+
+ QuitProgram:
+  CAEN_DGTZ_SWStopAcquisition(handle_fast);
+  CAEN_DGTZ_CloseDigitizer(handle_fast);   
+  return 0;
+}
