@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
   ret = CAEN_DGTZ_GetIOLevel(handle_fast, &level);
   fprintf(stderr,"Front Panel I/O Level is %i (1 for TTL, 0 for NIM)\n", level);
 
-  ret = CAEN_DGTZ_SetRecordLength(handle_fast, 4096);
+  ret = CAEN_DGTZ_SetRecordLength(handle_fast, 1024);
   ret = CAEN_DGTZ_GetRecordLength(handle_fast, &reclength);
   fprintf(stderr,"Record Length is set to %i\n", reclength);
 
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
   // fprintf(stderr,"Trigger mode is %i\n", mode);
 
   
-  ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle_fast, 3);
+  ret = CAEN_DGTZ_SetMaxNumEventsBLT(handle_fast, 1);
 
   ret = CAEN_DGTZ_SetAcquisitionMode(handle_fast, CAEN_DGTZ_SW_CONTROLLED);
   
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
   ret2 = CAENComm_Read16(handle_slow, 0x002, &trig); //9C00 for ext trig
   fprintf(stderr,"trigger register is %04x\n",trig);
   
-  ret2 = CAENComm_Write16(handle_slow, 0x004, 0xE440); //1024/8 =128 samples
+  ret2 = CAENComm_Write16(handle_slow, 0x004, 0x0C40); //(buffer size 16, block (num channels 8) is 0x0C40)    (0xE4401024/8 =128 samples was initial setting)
 
   ret2 = CAENComm_Read16(handle_slow, 0x004, &sample); //9C00 for ext trig
   fprintf(stderr,"sample register is %04x\n",sample);
@@ -211,18 +211,18 @@ int main(int argc, char *argv[])
       //**********************
 
       do {
-	CAENComm_Read16(handle_slow, 0x002, &dataRDY);
+      	CAENComm_Read16(handle_slow, 0x002, &dataRDY);
       }
       while(!(dataRDY >> 6 & 1));
 
       time(&timer);
       fwrite(&timer,4,1,stdout);
       
-      for(j=0; j<0x400;j++)
-	{
-	  CAENComm_Read16(handle_slow, 0x80+2*j, buff+j);
-	}
-      fwrite(buff, 2, 0x400, stdout);
+      for(j=0; j<0x10;j++) //0x10 for 16 samples due to buffer organization having 16 word samples)
+      	{
+      	  CAENComm_Read16(handle_slow, 0x80+2*j, buff+j);
+      	}
+      fwrite(buff, 2, 0x10, stdout);
       bzero(buff,0x800);
      
       //**********************
