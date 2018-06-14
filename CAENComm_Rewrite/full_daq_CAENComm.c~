@@ -1,14 +1,3 @@
-//***************************************************************************************************************************************************************
-//Written by Danielle Schaper and Chris Crawford (2018)
-//To run (if in current directory), syntax is ./full_daq <Ntriggers> <Nseconds>
-//Examples:
-//full_daq 999999999 500 <--takes unlimited number of samples for 500s
-//full_daq 100           <--takes 100 events, no matter how long it takes
-//full_daq 100 500       <--takes up to 100 events that come within 500s
-//full_daq               <--takes infinite samples for infinite time...well, 63 years (2e9 seconds--close to max 32bit signed int), but I am hoping to graduate before then.
-//****************************************************************************************************************************************************************
-
-
 #include <CAENDigitizer.h>
 #include <CAENComm.h>
 #include "keyb.c"
@@ -64,7 +53,7 @@ int main(int argc, char *argv[])
 
   int c=0;
   int i, j;
-  int nevents=2e9;
+  int nevents=100;
   CAEN_DGTZ_ErrorCode ret;
   CAENComm_ErrorCode ret2;
   int handle_fast;
@@ -85,7 +74,7 @@ int main(int argc, char *argv[])
   int err;
   uint32_t data;
   uint32_t evtRDY;
-  time_t timer, start, ntime = 2e9;
+  time_t timer;
 
   int handle_slow;
   uint16_t trig;
@@ -97,12 +86,12 @@ int main(int argc, char *argv[])
   uint32_t address = 0x80;
 
   if (argc>1) nevents=atoi(argv[1]);
-  if (argc>2) ntime=atoi(argv[2]);
+  
   //*************************************
   //Open and Program the CAEN V1724 Card
   //*************************************
 
-  ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 1, 0, 0x32100000, &handle_fast);
+  ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, 0, 0, 0x32100000, &handle_fast);
   if(ret)
     {
       fprintf(stderr,"Unable to open digitizer. Error code is %d, handle is %i \n", ret, handle_fast);
@@ -205,7 +194,7 @@ int main(int argc, char *argv[])
     {
       CAENComm_Read16(handle_slow, 0x002, &dataRDY); 
     }
-  while(!(dataRDY >> 7 & 1)); //check the DataReady bit in register 0x002
+  while(!(dataRDY >> 7 & 1));
 
   fprintf(stderr,"Successfully programmed and calibrated the 3122 card!\n");
 
@@ -214,10 +203,8 @@ int main(int argc, char *argv[])
   //READOUT
   //**********************************************************************
   ret = CAEN_DGTZ_SWStartAcquisition(handle_fast); //starts 1724
-
-
-  start=time(&timer);
-  for(i=0; i<nevents && timer-start <ntime; i++)
+  
+  for(i=0; i<nevents;i++)
     {
      
       //**********************

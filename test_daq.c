@@ -110,7 +110,8 @@ int main(int argc, char *argv[])
   printf("\nConnected to CAEN Digitizer Model %s, recognized as board %d\n", BoardInfo.ModelName, handle);
   printf("\tROC FPGA Release is %s\n", BoardInfo.ROC_FirmwareRel);
   printf("\tAMC FPGA Release is %s\n", BoardInfo.AMC_FirmwareRel);
-
+  printf("\tVME Handle is %i\n", BoardInfo.VMEHandle);
+  
   ret = CAEN_DGTZ_Reset(handle);
 
   ret = CAEN_DGTZ_SetIOLevel(handle, CAEN_DGTZ_IOLevel_TTL);

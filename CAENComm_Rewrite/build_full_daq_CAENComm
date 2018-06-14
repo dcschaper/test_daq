@@ -1,0 +1,3 @@
+echo =========
+g++ -o full_daq_CAENComm full_daq_CAENComm.c -I. -I$CAENDIGITIZERSYS/include -L$CAENDIGITIZERSYS/lib -lCAENDigitizer -lCAENComm
+echo =========

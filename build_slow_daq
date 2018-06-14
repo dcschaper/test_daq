@@ -1,0 +1,3 @@
+echo =========
+g++ -o slow_daq slow_daq.c -I. -I$CAENDIGITIZERSYS/include -L$CAENDIGITIZERSYS/lib -lCAENDigitizer -lCAENComm -lCAENVME
+echo =========

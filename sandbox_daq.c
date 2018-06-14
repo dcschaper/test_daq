@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
   ret2 = CAENComm_Write16(handle, 0x00C, 0x1);   //reset
 
-  ret2 = CAENComm_Write16(handle, 0x002, 0x9000); //9C00 for ext trig
+  ret2 = CAENComm_Write16(handle, 0x002, 0xC000); //9C00 for ext trig
 
   uint16_t trig;
   ret2 = CAENComm_Read16(handle, 0x002, &trig); //9C00 for ext trig
